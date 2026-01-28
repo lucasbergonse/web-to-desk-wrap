@@ -1,7 +1,8 @@
 import { motion } from "framer-motion";
 import { Button } from "./ui/button";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Wand2 } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 interface NavbarProps {
   onGetStarted: () => void;
@@ -34,6 +35,10 @@ export const Navbar = ({ onGetStarted }: NavbarProps) => {
             <a href="#how-it-works" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
               Como Funciona
             </a>
+            <Link to="/tools" className="text-muted-foreground hover:text-foreground transition-colors text-sm flex items-center gap-1">
+              <Wand2 className="w-3.5 h-3.5" />
+              Ferramentas IA
+            </Link>
             <a href="#pricing" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
               Preços
             </a>
@@ -69,6 +74,10 @@ export const Navbar = ({ onGetStarted }: NavbarProps) => {
               <a href="#how-it-works" className="text-muted-foreground hover:text-foreground transition-colors">
                 Como Funciona
               </a>
+              <Link to="/tools" className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+                <Wand2 className="w-4 h-4" />
+                Ferramentas IA
+              </Link>
               <a href="#pricing" className="text-muted-foreground hover:text-foreground transition-colors">
                 Preços
               </a>
