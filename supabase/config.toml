@@ -7,3 +7,7 @@ verify_jwt = false
 [functions.create-build]
 enabled = true
 verify_jwt = false
+
+[functions.generate-installer]
+enabled = true
+verify_jwt = false
