@@ -14,7 +14,84 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      builds: {
+        Row: {
+          app_name: string
+          app_url: string
+          created_at: string
+          download_url: string | null
+          error_message: string | null
+          framework: string
+          icon_url: string | null
+          id: string
+          status: string
+          target_os: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          app_name: string
+          app_url: string
+          created_at?: string
+          download_url?: string | null
+          error_message?: string | null
+          framework: string
+          icon_url?: string | null
+          id?: string
+          status?: string
+          target_os: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          app_name?: string
+          app_url?: string
+          created_at?: string
+          download_url?: string | null
+          error_message?: string | null
+          framework?: string
+          icon_url?: string | null
+          id?: string
+          status?: string
+          target_os?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          builds_this_month: number
+          created_at: string
+          display_name: string | null
+          email: string | null
+          id: string
+          plan: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          builds_this_month?: number
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          plan?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          builds_this_month?: number
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          plan?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

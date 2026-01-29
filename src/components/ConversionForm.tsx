@@ -1,15 +1,15 @@
 import { useState, useRef } from "react";
 import { motion } from "framer-motion";
-import { Upload, Monitor, Apple, Laptop, Loader2, CheckCircle2 } from "lucide-react";
+import { Upload, Monitor, Apple, Laptop, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { toast } from "sonner";
+import { useBuildProcess, BuildStatus } from "@/hooks/useBuildProcess";
 
 type OS = "windows" | "macos" | "linux";
 type Framework = "electron" | "tauri";
-type BuildStatus = "idle" | "queued" | "building" | "completed";
 
 export const ConversionForm = () => {
   const [appName, setAppName] = useState("");
@@ -17,8 +17,9 @@ export const ConversionForm = () => {
   const [selectedOS, setSelectedOS] = useState<OS>("windows");
   const [framework, setFramework] = useState<Framework>("electron");
   const [iconFile, setIconFile] = useState<File | null>(null);
-  const [buildStatus, setBuildStatus] = useState<BuildStatus>("idle");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const { status, currentBuild, startBuild, downloadInstaller, reset } = useBuildProcess();
 
   const handleIconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -32,6 +33,20 @@ export const ConversionForm = () => {
     }
   };
 
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const result = reader.result as string;
+        // Remove the data:image/xxx;base64, prefix
+        const base64 = result.split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -40,14 +55,31 @@ export const ConversionForm = () => {
       return;
     }
 
-    // Simulate build process
-    setBuildStatus("queued");
-    
-    setTimeout(() => setBuildStatus("building"), 2000);
-    setTimeout(() => {
-      setBuildStatus("completed");
-      toast.success("Build concluído! Seu instalador está pronto.");
-    }, 6000);
+    let iconBase64: string | undefined;
+    if (iconFile) {
+      try {
+        iconBase64 = await fileToBase64(iconFile);
+      } catch (err) {
+        console.error("Error converting icon to base64:", err);
+      }
+    }
+
+    await startBuild({
+      appName: appName.trim(),
+      appUrl: appUrl.trim(),
+      targetOs: selectedOS,
+      framework,
+      iconBase64,
+    });
+  };
+
+  const handleReset = () => {
+    reset();
+    setAppName("");
+    setAppUrl("");
+    setIconFile(null);
+    setSelectedOS("windows");
+    setFramework("electron");
   };
 
   const osOptions = [
@@ -61,8 +93,17 @@ export const ConversionForm = () => {
     { value: "tauri", label: "Tauri", description: "Mais leve" },
   ];
 
-  if (buildStatus !== "idle") {
-    return <BuildStatusCard status={buildStatus} appName={appName} onReset={() => setBuildStatus("idle")} />;
+  if (status !== "idle") {
+    return (
+      <BuildStatusCard 
+        status={status} 
+        appName={currentBuild?.app_name || appName} 
+        targetOs={currentBuild?.target_os || selectedOS}
+        downloadUrl={currentBuild?.download_url || null}
+        onDownload={downloadInstaller}
+        onReset={handleReset} 
+      />
+    );
   }
 
   return (
@@ -198,11 +239,29 @@ export const ConversionForm = () => {
 interface BuildStatusCardProps {
   status: BuildStatus;
   appName: string;
+  targetOs: string;
+  downloadUrl: string | null;
+  onDownload: () => void;
   onReset: () => void;
 }
 
-const BuildStatusCard = ({ status, appName, onReset }: BuildStatusCardProps) => {
+const BuildStatusCard = ({ status, appName, targetOs, downloadUrl, onDownload, onReset }: BuildStatusCardProps) => {
+  const getFileExtension = () => {
+    switch (targetOs) {
+      case "windows": return ".exe";
+      case "macos": return ".dmg";
+      case "linux": return ".AppImage";
+      default: return "";
+    }
+  };
+
   const statusConfig = {
+    idle: {
+      title: "",
+      description: "",
+      icon: Loader2,
+      iconClass: "",
+    },
     queued: {
       title: "Na fila...",
       description: "Seu build está aguardando para iniciar.",
@@ -221,11 +280,11 @@ const BuildStatusCard = ({ status, appName, onReset }: BuildStatusCardProps) => 
       icon: CheckCircle2,
       iconClass: "text-green-500",
     },
-    idle: {
-      title: "",
-      description: "",
-      icon: Loader2,
-      iconClass: "",
+    failed: {
+      title: "Erro no build",
+      description: "Ocorreu um erro ao gerar seu instalador.",
+      icon: XCircle,
+      iconClass: "text-red-500",
     },
   };
 
@@ -242,11 +301,16 @@ const BuildStatusCard = ({ status, appName, onReset }: BuildStatusCardProps) => 
           <config.icon className={`w-16 h-16 mx-auto mb-6 ${config.iconClass}`} />
           <h3 className="font-display text-2xl font-bold mb-2">{config.title}</h3>
           <p className="text-muted-foreground mb-2">{config.description}</p>
-          <p className="text-sm text-primary mb-6">{appName}</p>
+          <p className="text-sm text-primary mb-6">{appName}{getFileExtension()}</p>
 
           {status === "completed" && (
             <div className="space-y-3">
-              <Button variant="hero" size="lg" className="w-full">
+              <Button 
+                variant="hero" 
+                size="lg" 
+                className="w-full"
+                onClick={onDownload}
+              >
                 Baixar Instalador
               </Button>
               <Button variant="ghost" onClick={onReset} className="w-full">
@@ -255,7 +319,15 @@ const BuildStatusCard = ({ status, appName, onReset }: BuildStatusCardProps) => 
             </div>
           )}
 
-          {status !== "completed" && (
+          {status === "failed" && (
+            <div className="space-y-3">
+              <Button variant="hero" onClick={onReset} className="w-full">
+                Tentar novamente
+              </Button>
+            </div>
+          )}
+
+          {(status === "queued" || status === "building") && (
             <div className="w-full bg-secondary rounded-full h-2 overflow-hidden">
               <motion.div
                 className="h-full bg-primary"
@@ -270,3 +342,4 @@ const BuildStatusCard = ({ status, appName, onReset }: BuildStatusCardProps) => 
     </section>
   );
 };
+
