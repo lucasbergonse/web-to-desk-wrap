@@ -102,21 +102,58 @@ export const useBuildProcess = () => {
     }
   }, []);
 
-  const downloadInstaller = useCallback(() => {
-    if (!currentBuild?.download_url) {
-      toast.error("Link de download não disponível");
+  const downloadInstaller = useCallback(async () => {
+    if (!currentBuild) {
+      toast.error("Dados do build não disponíveis");
       return;
     }
 
-    // In production, this would download the actual file
-    // For now, show a message explaining the demo
-    toast.info(
-      "Demo: Em produção, o instalador seria baixado automaticamente. " +
-      "O sistema geraria um executável real para " + currentBuild.target_os + "."
-    );
+    try {
+      toast.loading("Gerando instalador...", { id: "download" });
+      
+      const response = await supabase.functions.invoke("generate-installer", {
+        body: {
+          appName: currentBuild.app_name,
+          appUrl: currentBuild.app_url,
+          targetOs: currentBuild.target_os,
+          framework: currentBuild.framework,
+        },
+      });
 
-    // Simulate download by opening a new tab (in production, this would be the real file)
-    // window.open(currentBuild.download_url, "_blank");
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      // Get the blob data
+      const blob = new Blob([response.data], { type: "application/octet-stream" });
+      
+      // Determine file extension
+      const extensions: Record<string, string> = {
+        windows: ".bat",
+        macos: ".command",
+        linux: ".sh",
+      };
+      const ext = extensions[currentBuild.target_os] || ".sh";
+      const fileName = `${currentBuild.app_name.replace(/[^a-zA-Z0-9]/g, "_")}_installer${ext}`;
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.success("Instalador baixado com sucesso!", { id: "download" });
+    } catch (err) {
+      console.error("Download error:", err);
+      toast.error(
+        "Erro ao baixar instalador: " + (err instanceof Error ? err.message : "Erro desconhecido"),
+        { id: "download" }
+      );
+    }
   }, [currentBuild]);
 
   const reset = useCallback(() => {
