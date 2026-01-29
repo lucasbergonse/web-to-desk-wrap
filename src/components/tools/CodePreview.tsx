@@ -4,6 +4,7 @@ import { Copy, Check, Code2, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import DOMPurify from "dompurify";
 
 interface CodePreviewProps {
   code: string;
@@ -25,7 +26,7 @@ export const CodePreview = ({ code, isLoading }: CodePreviewProps) => {
     }
   };
 
-  // Extract HTML for preview
+  // Extract and sanitize HTML for preview
   const extractHtml = () => {
     const htmlMatch = code.match(/```html\n([\s\S]*?)```/);
     const cssMatch = code.match(/```css\n([\s\S]*?)```/);
@@ -43,7 +44,27 @@ export const CodePreview = ({ code, isLoading }: CodePreviewProps) => {
       html = `<style>${css}</style>${html}`;
     }
 
-    return html;
+    // Sanitize HTML to prevent XSS attacks
+    return DOMPurify.sanitize(html, {
+      ALLOWED_TAGS: [
+        'style', 'div', 'button', 'span', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'img', 'a', 'ul', 'ol', 'li', 'table', 'tr', 'td', 'th', 'thead', 'tbody',
+        'svg', 'path', 'circle', 'rect', 'g', 'line', 'polygon', 'polyline', 'ellipse',
+        'text', 'tspan', 'defs', 'linearGradient', 'radialGradient', 'stop', 'use',
+        'clipPath', 'mask', 'pattern', 'filter', 'feGaussianBlur', 'feOffset',
+        'feMerge', 'feMergeNode', 'feBlend', 'feColorMatrix'
+      ],
+      ALLOWED_ATTR: [
+        'class', 'style', 'id', 'href', 'src', 'alt', 'title', 'target', 'rel',
+        'viewBox', 'd', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 
+        'stroke-linejoin', 'width', 'height', 'x', 'y', 'cx', 'cy', 'r', 'rx', 'ry',
+        'x1', 'y1', 'x2', 'y2', 'points', 'transform', 'opacity', 'fill-opacity',
+        'stroke-opacity', 'gradientUnits', 'offset', 'stop-color', 'stop-opacity',
+        'xmlns', 'xlink:href', 'clip-path', 'filter', 'mask', 'preserveAspectRatio'
+      ],
+      FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'input'],
+      FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur', 'onsubmit']
+    });
   };
 
   if (!code && !isLoading) {
